@@ -2,7 +2,7 @@ import customtkinter as ctk
 import subprocess
 import os
 
-# Import Person 2's brain logic; uses fallback if brain.py is not yet present
+# Import Person 2's brain logic; fallback mock in Malayalam
 try:
     from brain import CompilerGirlfriend
 except ImportError:
@@ -14,11 +14,11 @@ except ImportError:
         def reply(self, user_message: str) -> tuple[str, bool]:
             self.turn += 1
             msg = user_message.lower()
-            if any(w in msg for w in ["sorry", "kshamikku", "shemikkanam", "promise", "pavam"]):
-                return ("Saramilla, ee thavana njan kshamichirikkunnu. Ini aavarthikkaruthu! [STATUS: FORGIVEN]", True)
+            if any(w in msg for w in ["sorry", "മാപ്പ്", "ക്ഷമിക്കണം", "സത്യമായിട്ടും", "തെറ്റുപറ്റി"]):
+                return ("സാരമില്ല, ഇത്തവണത്തേക്ക് ഞാൻ ക്ഷമിച്ചിരിക്കുന്നു. ഇനി ഇത് ആവർത്തിക്കരുത്! [STATUS: FORGIVEN]", True)
             if self.turn == 1:
-                return ("Ennod mindanda. Njan aara ninakku? Oru semicolon polum sredhikkatha aal.", False)
-            return ("Oru excuse-um parayan nilkanda. Athra careless aano nee?", False)
+                return ("എന്നോട് ഒന്നും മിണ്ടേണ്ട. ഞാൻ ആരാ നിനക്ക്? ഒരു സെമിക്കോളൻ പോലും ശ്രദ്ധിക്കാത്ത ആളാണ് എന്നെ നോക്കുന്നത്.", False)
+            return ("ഒരു ഒഴിവുകഴിവും പറയേണ്ട. അത്രക്ക് അലക്ഷ്യമാണോ ഞാൻ നിനക്ക്?", False)
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -31,16 +31,16 @@ class ConfrontationWindow(ctk.CTkToplevel):
         self.gf_brain = CompilerGirlfriend(self.error_log)
 
         self.title("atone.c - gcc പിണക്കത്തിലാണ് 💔")
-        self.geometry("500x600")
+        self.geometry("520x620")
         
-        # Keep window strictly on top and disable standard window closing
+        # Keep window strictly on top and block manual closing
         self.attributes("-topmost", True)
         self.protocol("WM_DELETE_WINDOW", self.prevent_close)
 
         # Header profile
         self.header = ctk.CTkLabel(
             self, 
-            text="gcc 💔 (Last seen: judging your syntax)", 
+            text="gcc 💔 (നിങ്ങളുടെ സിന്റാക്സ് കണ്ട് കട്ടക്കലിപ്പിലാണ്)", 
             font=("Arial", 14, "bold"), 
             text_color="#e74c3c"
         )
@@ -48,7 +48,7 @@ class ConfrontationWindow(ctk.CTkToplevel):
 
         self.sub_header = ctk.CTkLabel(
             self, 
-            text="Error vannappol orma vannalle? Ennod onnum mindanda.", 
+            text="എറർ വന്നപ്പോൾ ഓർമ്മ വന്നല്ലേ? എന്നോട് ഒന്നും സംസാരിക്കേണ്ട.", 
             font=("Arial", 11, "italic"), 
             text_color="#bdc3c7"
         )
@@ -64,15 +64,15 @@ class ConfrontationWindow(ctk.CTkToplevel):
 
         self.chat_entry = ctk.CTkEntry(
             self.input_frame, 
-            placeholder_text="Kshamachodikkuka / Apologize properly..."
+            placeholder_text="മാപ്പ് പറയുക / Apologize sincerely..."
         )
         self.chat_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         self.chat_entry.bind("<Return>", lambda event: self.send_message())
 
         self.send_button = ctk.CTkButton(
             self.input_frame, 
-            text="Send", 
-            width=75, 
+            text="അയക്കുക", 
+            width=80, 
             fg_color="#e74c3c",
             hover_color="#c0392b",
             command=self.send_message
@@ -80,10 +80,10 @@ class ConfrontationWindow(ctk.CTkToplevel):
         self.send_button.pack(side="right")
 
         # Initial opening line
-        self.add_message("gcc 💔", "Ennod mindanda. Poi Python-o Clang-o vallathum use cheyyu. Njan venda.")
+        self.add_message("gcc 💔", "എന്നോട് ഒന്നും മിണ്ടേണ്ട. പോയി ആ Python-നെയോ Clang-നെയോ വിളിക്കു. ഞാൻ വേണ്ടല്ലോ.")
 
     def prevent_close(self):
-        self.add_message("gcc 💔", "Window close cheythu രക്ഷപ്പെടാൻ nokkanda! Samsarichu theerkku.")
+        self.add_message("gcc 💔", "വിൻഡോ ക്ലോസ് ചെയ്ത് രക്ഷപ്പെടാൻ നോക്കേണ്ട! കാര്യം പറഞ്ഞിട്ട് പോയാൽ മതി.")
 
     def add_message(self, sender: str, text: str):
         self.chat_display.configure(state="normal")
@@ -105,8 +105,8 @@ class ConfrontationWindow(ctk.CTkToplevel):
         if is_forgiven:
             self.parent.run_button.configure(state="normal", fg_color="#2ecc71")
             self.parent.log_console(
-                "Build Gate Unlocked: Compilation allowed after sincere atonement.\n\n"
-                "Program output:\nHello, World!\n[Process completed successfully]"
+                "കമ്പൈലേഷൻ അൺലോക്ക് ചെയ്തു: ആത്മാർത്ഥമായ മാപ്പപേക്ഷ സ്വീകരിച്ചിരിക്കുന്നു.\n\n"
+                "പ്രോഗ്രാം ഔട്ട്പുട്ട്:\nHello, World!\n[Process completed successfully]"
             )
             self.destroy()
 
@@ -116,7 +116,7 @@ class CodeEditorApp(ctk.CTk):
         self.title("atone.c - Antagonistic C Compiler IDE")
         self.geometry("820x680")
 
-        self.code_label = ctk.CTkLabel(self, text="C Source Code (atone.c):", font=("Consolas", 14, "bold"))
+        self.code_label = ctk.CTkLabel(self, text="C സോഴ്സ് കോഡ് (atone.c):", font=("Consolas", 14, "bold"))
         self.code_label.pack(anchor="w", padx=20, pady=(15, 0))
 
         self.editor = ctk.CTkTextbox(self, font=("Consolas", 13), wrap="none", height=340)
@@ -126,7 +126,7 @@ class CodeEditorApp(ctk.CTk):
         starter_code = (
             "#include <stdio.h>\n\n"
             "int main() {\n"
-            "    printf(\"Hello, World!\\n\") // Missing semicolon here!\n"
+            "    printf(\"Hello, World!\\n\") // ഇവിടെ സെമിക്കോളൻ വിട്ടുപോയി!\n"
             "    return 0;\n"
             "}"
         )
@@ -144,7 +144,7 @@ class CodeEditorApp(ctk.CTk):
         self.run_button.pack(pady=6)
 
         # Terminal output
-        self.output_label = ctk.CTkLabel(self, text="Terminal Output:", font=("Consolas", 14, "bold"))
+        self.output_label = ctk.CTkLabel(self, text="ടെർമിനൽ ഔട്ട്പുട്ട്:", font=("Consolas", 14, "bold"))
         self.output_label.pack(anchor="w", padx=20, pady=(10, 0))
 
         self.console = ctk.CTkTextbox(self, font=("Consolas", 12), height=140, state="disabled")
@@ -163,7 +163,6 @@ class CodeEditorApp(ctk.CTk):
             f.write(code)
 
         try:
-            # Attempt real GCC compilation
             compile_proc = subprocess.run(
                 ["gcc", "temp.c", "-o", "temp_out"],
                 capture_output=True,
@@ -173,7 +172,6 @@ class CodeEditorApp(ctk.CTk):
             stderr_msg = compile_proc.stderr
             has_gcc = True
         except FileNotFoundError:
-            # Fallback if GCC is not found on Windows PATH
             has_gcc = False
             lines = [line.strip() for line in code.splitlines() if line.strip() and not line.strip().startswith("//")]
             has_missing_semicolon = any(
@@ -195,7 +193,6 @@ class CodeEditorApp(ctk.CTk):
                 stderr_msg = ""
 
         if returncode != 0:
-            # Build failed: lock IDE and launch Malayalam confrontation window
             self.run_button.configure(state="disabled", fg_color="#7f8c8d")
             ConfrontationWindow(self, stderr_msg)
         else:
@@ -204,7 +201,7 @@ class CodeEditorApp(ctk.CTk):
                 run_proc = subprocess.run(run_cmd, capture_output=True, text=True)
                 self.log_console(run_proc.stdout)
             else:
-                self.log_console("Hello, World!\n\n[Build and run succeeded via atone.c runner]")
+                self.log_console("Hello, World!\n\n[atone.c വഴി വിജയകരമായി റൺ ചെയ്തു]")
             self.cleanup()
 
     def cleanup(self):
