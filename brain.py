@@ -1,7 +1,8 @@
 import os
 from google import genai
+from google.genai import types
 
-# Reads GEMINI_API_KEY from environment
+# Initialize client (uses GEMINI_API_KEY environment variable)
 client = genai.Client()
 
 SYSTEM_INSTRUCTION = """
@@ -30,25 +31,36 @@ SYSTEM_INSTRUCTION = """
 class CompilerGirlfriend:
     def __init__(self, error_log: str):
         self.error_log = error_log
-        self.history = [
-            {"role": "user", "parts": ["I broke the build in atone.c. gcc error:\n" + str(self.error_log)]}
-        ]
+        
+        # Initialize an official multi-turn chat session with system instruction
+        self.chat = client.chats.create(
+            model="gemini-2.5-flash",
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_INSTRUCTION,
+                temperature=0.7
+            )
+        )
+        
+        # Seed the initial context with the GCC error
+        initial_context = f"I broke the build in atone.c. Here is the gcc compiler error:\n{self.error_log}"
+        try:
+            self.chat.send_message(initial_context)
+        except Exception:
+            pass
 
     def reply(self, user_message: str) -> tuple[str, bool]:
-        self.history.append({"role": "user", "parts": [user_message]})
+        """
+        Sends the user's message to the chat session and returns:
+        (cleaned_reply_text, is_forgiven)
+        """
         try:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=self.history,
-                config={"system_instruction": SYSTEM_INSTRUCTION}
-            )
+            response = self.chat.send_message(user_message)
             reply_text = response.text or ""
         except Exception as e:
             reply_text = f"എനിക്ക് ഇപ്പോൾ നിന്നോട് ഒന്നും സംസാരിക്കാൻ താല്പര്യമില്ല! (Error: {str(e)})"
 
-        self.history.append({"role": "model", "parts": [reply_text]})
-        
+        # Check for the secret forgiveness tag
         is_forgiven = "[STATUS: FORGIVEN]" in reply_text
         clean_text = reply_text.replace("[STATUS: FORGIVEN]", "").strip()
-        
+
         return clean_text, is_forgiven
