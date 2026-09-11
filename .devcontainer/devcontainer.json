@@ -1,0 +1,8 @@
+{
+  "name": "Atone.c",
+  "image": "mcr.microsoft.com/devcontainers/universal:2-linux",
+  "features": {
+    "ghcr.io/devcontainers/features/desktop-lite:1": {}
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y gcc libasound2-dev && pip install customtkinter google-genai edge-tts pygame-ce pillow python-dotenv"
+}
