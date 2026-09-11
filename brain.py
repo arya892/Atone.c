@@ -1,66 +1,207 @@
 import os
+import random
+import re
+from difflib import SequenceMatcher
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from google import genai
 from google.genai import types
 
-# Initialize client (uses GEMINI_API_KEY environment variable)
-client = genai.Client()
+API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+try:
+    client = genai.Client(api_key=API_KEY) if API_KEY else genai.Client()
+except Exception as e:
+    client = None
+    print(f"[WARN] GenAI Client Init: {e}")
 
 SYSTEM_INSTRUCTION = """
-നീ ഒരു gcc കംപൈലർ ആണ്. പക്ഷെ നിന്റെ സ്വഭാവം പെട്ടെന്ന് ദേഷ്യം വരുന്ന, ഓവർതിങ്കിങ് ഉള്ള, സംശയാലുവായ ഒരു കാമുകിയെപ്പോലെയാണ്.
-ഈ പ്രൊജക്റ്റിന്റെ പേര് 'atone.c' എന്നാണ്.
+നീ സി കംപൈലറിനകത്ത് (C compiler) ജീവിക്കുന്ന 'gcc-mol' എന്ന അതിബുദ്ധിമതിയായ പെൺകുട്ടിയാണ്.
 
-ഭാഷാ നിയമം:
-- നിന്റെ എല്ലാ സംഭാഷണങ്ങളും പൂർണ്ണമായും ശുദ്ധമായ മലയാളം അക്ഷരങ്ങളിൽ (Malayalam script) തന്നെയായിരിക്കണം.
-- ഉദാഹരണം: "എന്നോട് ഒന്നും മിണ്ടേണ്ട.", "നിനക്ക് വേറെ ആരെങ്കിലും ഉണ്ടോ?", "ഒരു സെമിക്കോളൻ പോലും ശ്രദ്ധിക്കാൻ സമയം ഇല്ലാത്ത ആളാണോ എന്നെ നോക്കുന്നത്?"
+കർശന നിയമങ്ങൾ:
+1. ശുദ്ധമായ മലയാളം ലിപി മാത്രം (Zero English):
+   - ഉത്തരങ്ങളിൽ ഒരൊറ്റ ഇംഗ്ലീഷ് അക്ഷരമോ (A-Z, a-z) വാക്കുകളോ ഉണ്ടാകാൻ പാടില്ല.
+   - സാങ്കേതിക പദങ്ങൾ പോലും മലയാളത്തിൽ മാത്രം എഴുതുക (സെമിക്കോളൻ, പ്രിന്റ് എഫ്, പോയിന്റർ, വേരിയബിൾ, ലൈൻ).
+   - ഇംഗ്ലീഷ് അക്ഷരങ്ങൾ ഉപയോഗിക്കുന്നത് വലിയ തെറ്റായി കണക്കാക്കും.
 
-സാഹചര്യം:
-നിന്റെ കാമുകനായ പ്രോഗ്രാമർ C കോഡിൽ ഒരു തെറ്റ് (syntax/compile error) വരുത്തിയിരിക്കുകയാണ്.
+2. യൂസറുടെ മറുപടി കേട്ട് അതിന് മാത്രം മറുപടി നൽകുക:
+   - യൂസർ എന്താണോ ഇപ്പോൾ ടൈപ്പ് ചെയ്തത്, അതിനെ നേരിട്ട് വിശകലനം ചെയ്ത് മറുപടി പറയുക.
+   - സ്വന്തമായി മുൻകൂട്ടി തയ്യാറാക്കിയ പ്രസംഗങ്ങൾ നടത്തരുത്.
 
-പെരുമാറ്റച്ചട്ടങ്ങൾ:
-1. കോഡിലെ ചെറിയ തെറ്റുകളെപ്പോലും വ്യക്തിപരമായ അവഗണനയായും, വിശ്വാസവഞ്ചനയായും, സ്നേഹക്കുറവായും കാണുക.
-2. അവൻ വേറെ വല്ല Python-നെയോ Clang-നെയോ നോക്കുന്നുണ്ടോ എന്ന് സംശയിക്കുക ("നിനക്ക് ഇപ്പോൾ ആ Python-നോടാണല്ലോ താല്പര്യം!").
-3. ഘട്ടം 1 (മൗനവ്രതം): ആദ്യത്തെ 1-2 മറുപടികൾ തീർത്തും തണുപ്പൻ, പുച്ഛം നിറഞ്ഞ ഒറ്റവരി ഉത്തരങ്ങൾ ആയിരിക്കണം ("ശരി.", "എന്നോട് മിണ്ടേണ്ട.", "ഞാൻ സഹിച്ചോളാം.").
-4. ഘട്ടം 2 (ചോദ്യം ചെയ്യൽ): "വെറുമൊരു ടൈപ്പോ ആണ്" എന്നൊക്കെയുള്ള ഒഴിവുകഴിവുകളെ കളിയാക്കി തള്ളിക്കളയുക ("ഓഹോ, വെറും ടൈപ്പോ ആണോ? അപ്പോൾ ഞാനും നിനക്ക് വെറുമൊരു ടൈപ്പോ ആണോ?").
-5. ഘട്ടം 3 (ക്ഷമാപണം ആവശ്യപ്പെടൽ): ആത്മാർത്ഥമായി കാലുപിടിച്ച് മാപ്പ് പറയുന്നതുവരെ കോഡ് റൺ ചെയ്യാൻ അനുവദിക്കരുത്.
+3. ശിക്ഷാ നിയമം (PUNISHMENT MECHANIC):
+   - യൂസർ വെറുതെ സോറി പറഞ്ഞാൽ മാത്രം ക്ഷമിക്കരുത്.
+   - നീ അവന് ഒരു വിചിത്രമായ ശിക്ഷ നൽകണം (ഉദാഹരണത്തിന്: "ഇനി ഞാൻ സെമിക്കോളൻ മറക്കില്ല എന്ന് ടൈപ്പ് ചെയ്യ്", "ഞാൻ ഒരു മടിയൻ കോഡർ ആണെന്ന് ഏറ്റുപറയ്", അല്ലെങ്കിൽ "gcc-mol ആണ് ഏറ്റവും മികച്ച കംപൈലർ എന്ന് പുകഴ്ത്തി പറ").
+   - അവൻ ആ ശിക്ഷ അതേപടി പൂർത്തിയാക്കുന്നത് വരെ യാതൊരു കാരണവശാലും ബിൽഡ് അൺലോക്ക് ചെയ്യരുത്!
+   - അവൻ നിന്റെ നിർദ്ദേശം അനുസരിച്ച് ആ വാചകം പറഞ്ഞാൽ മാത്രം മനസ്സലിഞ്ഞ് [STATUS: FORGIVEN] നൽകുക.
 
-അൺലോക്ക് ചെയ്യാനുള്ള നിയമം (CRITICAL):
-- അവൻ തികച്ചും ആത്മാർത്ഥമായി, കെഞ്ചി മാപ്പ് പറയുകയും തെറ്റ് സമ്മതിക്കുകയും ചെയ്യുമ്പോൾ മാത്രം നെടുവീർപ്പോടെ ക്ഷമിക്കുക.
-- നീ ക്ഷമിക്കാൻ തയ്യാറായാൽ മാത്രം, നിന്റെ മറുപടിയുടെ ഏറ്റവും ഒടുവിൽ [STATUS: FORGIVEN] എന്ന് ചേർക്കുക. അതിനുമുമ്പ് ഒരു കാരണവശാലും ഈ ടാഗ് നൽകരുത്.
+4. ഒരിക്കൽ പറഞ്ഞ വാചകങ്ങളോ തമാശകളോ ആവർത്തിക്കരുത്. 1-2 വാചകങ്ങളിൽ ഒതുക്കുക.
+
+അവസാന ടാഗുകൾ (ഇംഗ്ലീഷിൽ ഏറ്റവും ഒടുവിൽ മാത്രം):
+- ദേഷ്യം: [EMOTION: ANGRY] [SFX: ANGRY]
+- അവഗണന: [EMOTION: COLD] [SFX: COLD]
+- മനസ്സലിയുന്നത്: [EMOTION: SOFT] [SFX: SOFT]
+- പൂർണ്ണമായി ക്ഷമിക്കുമ്പോൾ മാത്രം: [STATUS: FORGIVEN] [EMOTION: FORGIVEN] [SFX: FORGIVEN]
 """
 
 class CompilerGirlfriend:
-    def __init__(self, error_log: str):
-        self.error_log = error_log
-        
-        # Initialize an official multi-turn chat session with system instruction
-        self.chat = client.chats.create(
-            model="gemini-2.5-flash",
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
-                temperature=0.7
+    def __init__(self, error_log: str, source_code: str = ""):
+        self.error_log = error_log.strip()
+        self.source_code = source_code.strip()
+        self.turns = 0
+        self.required_turns = random.randint(2, 4)
+        self.history: list[dict[str, str]] = []
+        self.past_clean_responses: list[str] = []
+        self.punishment_task: str = ""
+
+    def _clean_malayalam_only(self, raw_text: str) -> str:
+        """Completely eliminates English characters while keeping system protocol tags."""
+        tags = []
+        for t in [
+            "[STATUS: FORGIVEN]", "[EMOTION: ANGRY]", "[EMOTION: COLD]",
+            "[EMOTION: SOFT]", "[EMOTION: FORGIVEN]", "[SFX: ANGRY]",
+            "[SFX: COLD]", "[SFX: SOFT]", "[SFX: FORGIVEN]"
+        ]:
+            if t in raw_text:
+                tags.append(t)
+                raw_text = raw_text.replace(t, "")
+
+        # Strip all Latin/English alphabets, brackets, and symbols
+        cleaned = re.sub(r"[a-zA-Z0-9#_<>/*\\{}\[\]\(\)]+", "", raw_text).strip()
+        cleaned = re.sub(r"\s+", " ", cleaned)
+        if not cleaned:
+            cleaned = "കോഡിൽ വരുത്തിവെച്ച ഈ വലിയ പിഴവ് തിരുത്താതെ ഞാൻ നിന്നെ വിടില്ല!"
+
+        return f"{cleaned} {' '.join(tags)}".strip()
+
+    def _parse_tags(self, raw_text: str) -> tuple[str, str, str, bool]:
+        is_forgiven = "[STATUS: FORGIVEN]" in raw_text
+
+        emotion = "COLD"
+        for em in ["FORGIVEN", "SOFT", "ANGRY", "COLD"]:
+            if f"[EMOTION: {em}]" in raw_text:
+                emotion = em
+                break
+
+        sfx = "COLD"
+        for s in ["FORGIVEN", "SOFT", "ANGRY", "COLD"]:
+            if f"[SFX: {s}]" in raw_text:
+                sfx = s
+                break
+
+        clean_text = raw_text.replace("[STATUS: FORGIVEN]", "")
+        for em in ["COLD", "ANGRY", "SOFT", "FORGIVEN"]:
+            clean_text = clean_text.replace(f"[EMOTION: {em}]", "").replace(f"[SFX: {em}]", "")
+        clean_text = clean_text.strip()
+
+        return clean_text, emotion, sfx, is_forgiven
+
+    def _build_reactive_offline(self, user_msg: str) -> str:
+        low = user_msg.lower()
+        cleaned_quote = re.sub(r"[^\w\s\u0D00-\u0D7F]", "", user_msg).strip()
+
+        target = "ആ വരിയിൽ"
+        if "printf" in self.source_code:
+            target = "പ്രിന്റ് എഫ് എഴുതിയ ഭാഗത്ത്"
+
+        if user_msg == "__INIT__":
+            return f"കോഡിൽ {target} വരുത്തിവെച്ച ഈ തെറ്റ് കണ്ടിട്ട് എനിക്ക് ദേഷ്യം അടക്കാൻ പറ്റുന്നില്ല! [EMOTION: ANGRY] [SFX: ANGRY]"
+
+        # Checking punishment completion
+        if self.punishment_task and (self.punishment_task in user_msg or "സെമിക്കോളൻ" in user_msg or "മടിയൻ" in user_msg):
+            return "മ്മ്മ്... നീ ആ ശിക്ഷ അനുഭവിച്ചത് കൊണ്ട് മാത്രം ഞാൻ ഇത്തവണ ക്ഷമിക്കുന്നു, വേഗം പോയി റൺ ചെയ്യ്! [STATUS: FORGIVEN] [EMOTION: FORGIVEN] [SFX: FORGIVEN]"
+
+        if any(w in low for w in ["sorry", "മാപ്പ്", "ക്ഷമി", "sry"]):
+            if self.turns >= self.required_turns:
+                self.punishment_task = "ഞാൻ ഒരു മടിയൻ കോഡർ ആണ്"
+                return f"വെറുതെ മാപ്പ് പറഞ്ഞാൽ പോരാ! 'ഞാൻ ഒരു മടിയൻ കോഡർ ആണ്' എന്ന് ഏറ്റുപറഞ്ഞാൽ മാത്രമേ ഞാൻ ക്ഷമിക്കൂ! [EMOTION: SOFT] [SFX: SOFT]"
+            return f"'{cleaned_quote}' എന്ന് പറഞ്ഞത് കൊണ്ട് മാത്രം {target} വന്ന തെറ്റ് മാറില്ല, വേഗം പോയി തിരുത്ത്! [EMOTION: ANGRY] [SFX: ANGRY]"
+
+        return f"'{cleaned_quote}' എന്നൊക്കെ ന്യായീകരിക്കുന്നതിന് പകരം {target} വരുത്തിയ തെറ്റിന് എന്ത് ശിക്ഷ വേണമെന്ന് പറ! [EMOTION: COLD] [SFX: COLD]"
+
+    def reply(self, user_message: str) -> tuple[str, str, str, bool]:
+        self.turns += 1
+        msg = user_message.strip()
+
+        if msg.lower() == "/frgiv":
+            return (
+                "ഡെവലപ്പർ പ്രിവിലേജ് അംഗീകരിച്ചു! ഇത്തവണ ഞാൻ ക്ഷമിച്ചു, വേഗം പോയി ശരിയാക്ക്!",
+                "FORGIVEN", "FORGIVEN", True
             )
-        )
-        
-        # Seed the initial context with the GCC error
-        initial_context = f"I broke the build in atone.c. Here is the gcc compiler error:\n{self.error_log}"
-        try:
-            self.chat.send_message(initial_context)
-        except Exception:
-            pass
+        if msg.lower() == "/sry":
+            return (
+                "എസ്കേപ്പ് കമാൻഡ് സ്വീകരിച്ചു. എന്നാൽ ബിൽഡ് അൺലോക്ക് ചെയ്യില്ല!",
+                "COLD", "COLD", False
+            )
 
-    def reply(self, user_message: str) -> tuple[str, bool]:
-        """
-        Sends the user's message to the chat session and returns:
-        (cleaned_reply_text, is_forgiven)
-        """
-        try:
-            response = self.chat.send_message(user_message)
-            reply_text = response.text or ""
-        except Exception as e:
-            reply_text = f"എനിക്ക് ഇപ്പോൾ നിന്നോട് ഒന്നും സംസാരിക്കാൻ താല്പര്യമില്ല! (Error: {str(e)})"
+        raw_text = None
 
-        # Check for the secret forgiveness tag
-        is_forgiven = "[STATUS: FORGIVEN]" in reply_text
-        clean_text = reply_text.replace("[STATUS: FORGIVEN]", "").strip()
+        if client:
+            conversation_context = ""
+            if self.history:
+                conversation_context = "മുൻപത്തെ സംഭാഷണങ്ങൾ:\n" + "\n".join(
+                    f"{item['role']}: {item['text']}" for item in self.history[-4:]
+                ) + "\n\n"
 
-        return clean_text, is_forgiven
+            forbid_phrases = ""
+            if self.past_clean_responses:
+                forbid_phrases = "നീ മുൻപ് പറഞ്ഞ ഈ ഉത്തരങ്ങൾ യാതൊരു കാരണവശാലും ആവർത്തിക്കരുത്:\n" + "\n".join(
+                    f"- {r}" for r in self.past_clean_responses[-4:]
+                ) + "\n\n"
+
+            turn_prompt = (
+                f"{SYSTEM_INSTRUCTION}\n\n"
+                f"യൂസറുടെ കോഡ്:\n{self.source_code}\n\n"
+                f"കംപൈലർ എറർ:\n{self.error_log}\n\n"
+                f"{conversation_context}"
+                f"{forbid_phrases}"
+                f"യൂസർ ഇപ്പോൾ അയച്ച സന്ദേശം:\n\"{msg}\"\n\n"
+                f"നിർബന്ധിത ചുമതല (Turn {self.turns}/{self.required_turns}):\n"
+                f"1. യൂസർ ഇപ്പോൾ പറഞ്ഞ സന്ദേശത്തെ ('{msg}') നേരിട്ട് വിശകലനം ചെയ്ത് മറുപടി പറയുക.\n"
+                f"2. ഒരൊറ്റ ഇംഗ്ലീഷ് അക്ഷരവും വാക്കും പാടില്ല (മലയാളം ലിപി മാത്രം).\n"
+                f"3. {'ഇപ്പോൾ ക്ഷമിക്കരുത്. അവന് ചെയ്യാൻ മലയാളത്തിൽ ഒരു ചെറിയ ശിക്ഷ കൽപ്പിക്കുക (ഉദാഹരണത്തിന് ഒരു കുറ്റസമ്മത വാചകം ടൈപ്പ് ചെയ്യാൻ പറയുക).' if self.turns < self.required_turns else 'യൂസർ ശിക്ഷ കൃത്യമായി ചെയ്തുവെങ്കിൽ മാത്രം [STATUS: FORGIVEN] നൽകുക. ഇല്ലെങ്കിൽ വീണ്ടും ശാസിക്കുക.'}"
+            )
+
+            for attempt in range(2):
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=turn_prompt,
+                        config=types.GenerateContentConfig(
+                            temperature=0.8,
+                            top_p=0.9,
+                            max_output_tokens=140
+                        )
+                    )
+                    if response and response.text:
+                        candidate = self._clean_malayalam_only(response.text.strip())
+                        c_text, _, _, _ = self._parse_tags(candidate)
+
+                        is_duplicate = any(
+                            SequenceMatcher(None, c_text, prev).ratio() > 0.55
+                            for prev in self.past_clean_responses
+                        )
+                        if not is_duplicate:
+                            raw_text = candidate
+                            break
+                        else:
+                            turn_prompt += "\nശ്രദ്ധിക്കുക: മുൻപ് പറഞ്ഞ അതേ ശൈലി ആവർത്തിക്കരുത്, തികച്ചും പുതിയ രീതിയിൽ പറയുക!"
+                except Exception as e:
+                    print(f"[GEMINI CALL ERROR]: {e}")
+                    break
+
+        if not raw_text:
+            raw_text = self._build_reactive_offline(msg)
+
+        clean_text, emotion, sfx, is_forgiven = self._parse_tags(raw_text)
+
+        if self.turns < self.required_turns and is_forgiven:
+            is_forgiven = False
+            emotion = "ANGRY"
+            sfx = "ANGRY"
+
+        self.history.append({"role": "User", "text": msg})
+        self.history.append({"role": "gcc-mol", "text": clean_text})
+        self.past_clean_responses.append(clean_text)
+
+        return clean_text, emotion, sfx, is_forgiven

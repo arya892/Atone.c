@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 int main() {
-    printf("Hello, World!\n") // Missing semicolon here!
+    // Missing semicolon here!
+    printf("Hello, World!\n")
     return 0;
 }
