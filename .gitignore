@@ -1,0 +1,5 @@
+.env
+temp.c
+temp_out
+temp_out.exe
+__pycache__/
